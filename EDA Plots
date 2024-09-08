@@ -1,0 +1,55 @@
+# Plot the data
+df.plot()
+plt.grid();
+
+# Boxplot by time
+sns.boxplot(x = df.index.year,y = df['col'])
+plt.grid();
+
+# time series monthplot to understand the spread of Sales across different years
+from statsmodels.graphics.tsaplots import month_plot
+month_plot(df['col'],ylabel='name')
+plt.grid();
+
+# Pivot table across month and year
+monthly_table_across_years = pd.pivot_table(df, values = 'col', columns = df.index.month, index = df.index.year)
+monthly_table_across_years
+
+# Plot the table
+monthly_table_across_years.plot()
+plt.grid()
+plt.legend(loc='best');
+# repeat the same for yearly table across months by changing position of month and year in pivot_table.
+
+# Plot emperical cumulative distribution plot
+from statsmodels.distributions.empirical_distribution import ECDF
+plt.figure(figsize = (18, 8))
+cdf = ECDF(df['col'])
+plt.plot(cdf.x, cdf.y, label = "statmodels");
+plt.grid()
+plt.xlabel('name');
+
+# Plot the average value per month and the month on month percentage change.
+# group by date and get average value, and percent change
+average    = df.groupby(df.index)["col"].mean()
+pct_change = df.groupby(df.index)["col"].sum().pct_change()
+fig, (axis1,axis2) = plt.subplots(2,1,sharex=True,figsize=(15,8))
+# plot average values over time(year-month)
+ax1 = average.plot(legend=True,ax=axis1,marker='o',title="Average Value",grid=True)
+ax1.set_xticks(range(len(average)))
+ax1.set_xticklabels(average.index.tolist())
+# plot percent change for values over time(year-month)
+ax2 = pct_change.plot(legend=True,ax=axis2,marker='o',colormap="summer",title="Value Percent Change",grid=True)
+
+# Decompose the Time Series and plot the different components.
+from    statsmodels.tsa.seasonal import   seasonal_decompose
+decomposition = seasonal_decompose(df['col'],model='additive'/'multiplicative',period=12)
+decomposition.plot();
+# decomposing components and printing them seperately
+trend = decomposition.trend
+seasonality = decomposition.seasonal
+residual = decomposition.resid
+print('Trend','\n',trend.head(12),'\n')
+print('Seasonality','\n',seasonality.head(12),'\n')
+print('Residual','\n',residual.head(12),'\n')
+
