@@ -1,0 +1,46 @@
+# Test for stationarity of the series - Dicky Fuller test
+from statsmodels.tsa.stattools import adfuller
+def test_stationarity(timeseries):
+    
+    #Determing rolling statistics
+    rolmean = timeseries.rolling(window=time_period).mean() #determining the rolling mean where time_period depends on seasonality and data frequency
+    rolstd = timeseries.rolling(window=time_period).std()   #determining the rolling standard deviation
+
+    #Plot rolling statistics:
+    orig = plt.plot(timeseries, color='blue',label='Original')
+    mean = plt.plot(rolmean, color='red', label='Rolling Mean')
+    std = plt.plot(rolstd, color='black', label = 'Rolling Std')
+    plt.legend(loc='best')
+    plt.title('Rolling Mean & Standard Deviation')
+    plt.show(block=False)
+    
+    #Perform Dickey-Fuller test:
+    print ('Results of Dickey-Fuller Test:')
+    dftest = adfuller(timeseries, autolag='AIC')
+    dfoutput = pd.Series(dftest[0:4], index=['Test Statistic','p-value','#Lags Used','Number of Observations Used'])
+    for key,value in dftest[4].items():
+        dfoutput['Critical Value (%s)'%key] = value
+    print (dfoutput,'\n') 
+
+# dickey fuller test output for hypothesis
+def adfuller_test(time_series):
+    result=adfuller(time_series)
+    labels = ['ADF Test Statistic','p-value','#Lags Used','Number of Observations Used']
+    for value,label in zip(result,labels):
+        print(label+' : '+str(value) )
+    if result[1] <= 0.05:
+        print("strong evidence against the null hypothesis(Ho), reject the null hypothesis")
+    else:
+        print("weak evidence against null hypothesis, indicating it is non-stationary ")
+
+# apply differencing if data is not stationary
+df1=df.copy()
+df1['Seasonal_First_Difference']=df1['RetailSales']-df1['RetailSales'].shift(1) # in shift assign value based on seasonality and check for different values
+df1['Seasonal_First_Difference'].plot() # plot difference values to check if data has become stationary
+
+# Reperform ad fuller test on df1 for original column and after difference column
+adfuller_test(df1['RetailSales'].dropna()) # for original column
+test_stationarity(df['RetailSales'].diff().dropna()) # for first difference
+adfuller_test(df['RetailSales'].diff().dropna())
+test_stationarity(df['RetailSales'].diff().diff().dropna()) # for second difference
+adfuller_test(df['RetailSales'].diff().diff().dropna())
