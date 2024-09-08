@@ -53,3 +53,13 @@ print('Trend','\n',trend.head(12),'\n')
 print('Seasonality','\n',seasonality.head(12),'\n')
 print('Residual','\n',residual.head(12),'\n')
 
+# Plot the Autocorrelation and the Partial Autocorrelation function plots on the whole data.
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+# for ACF
+plot_acf(df['col'],lags=50)
+plot_acf(df['col'].diff().dropna(),lags=50,title='Differenced Data Autocorrelation')
+plt.show()
+# for PACF
+plot_pacf(df['col'],lags=50)
+plot_pacf(df['col'].diff().dropna(),lags=50,title='Partial Autocorrelation')
+plt.show()
