@@ -1,0 +1,251 @@
+# Build an Automated version of an ARIMA model for which the best parameters are selected in accordance with the lowest Akaike Information Criteria (AIC).
+# parameter combination for models
+import itertools
+# for AR model
+p = range(0, n)
+d = q= 0
+pdq = list(itertools.product(p, d, q))
+print('Some parameter combinations for the Model...')
+for i in range(1,len(pdq)):
+    print('Model: {}'.format(pdq[i]))
+
+# for ARMA model
+p = q = range(0, n)
+d = 0
+
+# for ARIMA model
+p = q = range(0, n)
+d= range(1,2)
+pdq = list(itertools.product(p, d, q))
+print('Some parameter combinations for the Model...')
+for i in range(1,len(pdq)):
+    print('Model: {}'.format(pdq[i]))
+
+# Creating an empty Dataframe with column names only
+ARIMA_AIC = pd.DataFrame(columns=['param', 'AIC'])
+ARIMA_AIC
+
+from statsmodels.tsa.arima.model import ARIMA  # Updated import
+
+ARIMA_AIC = pd.DataFrame()  # Initialize an empty DataFrame to store AIC values
+
+# Loop through the parameter combinations in pdq
+for param in pdq:
+    ARIMA_model = ARIMA(train['col'].values, order=param).fit()
+    print('ARIMA{} - AIC:{}'.format(param, ARIMA_model.aic))
+    
+    # Use pd.concat instead of append
+    ARIMA_AIC = pd.concat([ARIMA_AIC, pd.DataFrame({'param': [param], 'AIC': [ARIMA_model.aic]})], ignore_index=True)
+
+# Sort the above AIC values in the ascending order to get the parameters for the minimum AIC value
+ARIMA_AIC.sort_values(by='AIC',ascending=True)
+
+# create the model based on best params
+auto_ARIMA = ARIMA(train['col'], order=best_params,freq='ME/YE/QE')
+results_auto_ARIMA = auto_ARIMA.fit()
+print(results_auto_ARIMA.summary())
+
+# Predict on the Test Set using this model and evaluate the model.
+# Make sure the forecast returns a series or array with the correct shape
+predicted_auto_ARIMA = results_auto_ARIMA.forecast(steps=len(test))
+# Check if the prediction is a one-dimensional array
+if isinstance(predicted_auto_ARIMA, tuple):
+    predicted_auto_ARIMA = predicted_auto_ARIMA[0]  # Extract forecasted values if it's a tuple
+# Now calculate RMSE, ensuring both are array-like
+from sklearn.metrics import mean_squared_error
+rmse = mean_squared_error(test['RetailSales'], predicted_auto_ARIMA, squared=False)
+print(rmse)
+resultsDf = pd.DataFrame({'RMSE': [rmse]}
+                           ,index=['ARIMA(2,1,1)'])
+resultsDf
+
+# Choose best p and q based pf ACF and PACF where lag cutoff is selected based on number of lags above confidence interval in the plot before first instance of lag being below CI
+# p is choosen using PACF and q using ACF
+plot_acf(df['col'].diff().dropna(),lags=50,title='Differenced Data Autocorrelation')
+plot_pacf(df['col'].diff().dropna(),lags=50,title='Differenced Data Partial Autocorrelation')
+plt.show()
+# create a model using the obeove params and follow the above model steps again where to concat the result
+temp_resultsDf = pd.DataFrame({'RMSE': [rmse]}
+                           ,index=['ARIMA(0,1,0)'])
+resultsDf = pd.concat([resultsDf,temp_resultsDf])
+resultsDf
+
+## Sarima Modelling
+# for choosing seasonal time interval plot ACF plot time intervals which are consistently above CI are taken as seasonal interval
+# parameter combination for models
+import itertools
+p = q = range(0, 3)
+d= range(1,2)
+D = range(0,1)
+pdq = list(itertools.product(p, d, q))
+model_pdq = [(x[0], x[1], x[2], seasonal_int) for x in list(itertools.product(p, D, q))]
+print('Examples of some parameter combinations for Model...')
+for i in range(1,len(pdq)):
+    print('Model: {}{}'.format(pdq[i], model_pdq[i]))
+
+SARIMA_AIC = pd.DataFrame(columns=['param','seasonal', 'AIC'])
+SARIMA_AIC
+
+import statsmodels.api as sm
+from sklearn.preprocessing import StandardScaler
+
+# Initialize an empty DataFrame to store AIC values
+SARIMA_AIC = pd.DataFrame(columns=['param', 'seasonal', 'AIC'])
+
+# Scale the data to help with convergence
+scaler = StandardScaler()
+train_scaled = scaler.fit_transform(train['col'].values.reshape(-1, 1))
+# Loop through the parameter combinations
+for param in pdq:
+    for param_seasonal in model_pdq:
+        try:
+            # Fit the SARIMA model using scaled data
+            SARIMA_model = sm.tsa.statespace.SARIMAX(train_scaled,
+                                                     order=param,
+                                                     seasonal_order=param_seasonal,
+                                                     enforce_stationarity=False,
+                                                     enforce_invertibility=False)
+            # Fit the model with more iterations and an alternative optimization method
+            results_SARIMA = SARIMA_model.fit(maxiter=2000, method='powell', disp=False)
+
+            # Print the AIC for the parameter combination
+            print('SARIMA{}x{} - AIC:{}'.format(param, param_seasonal, results_SARIMA.aic))
+
+            # Create a new row for AIC values
+            new_row = pd.DataFrame({'param': [param], 'seasonal': [param_seasonal], 'AIC': [results_SARIMA.aic]})
+
+            # Ensure the new row has no NA values
+            if not new_row.isnull().values.any():
+                SARIMA_AIC = pd.concat([SARIMA_AIC, new_row], ignore_index=True)
+
+        except Exception as e:
+            print(f"Error fitting SARIMA{param}x{param_seasonal}: {e}")
+# Display the DataFrame with the SARIMA model results
+print(SARIMA_AIC)
+
+# Store AIC values
+SARIMA_AIC = pd.DataFrame(columns=['param', 'seasonal', 'AIC'])
+# Loop through the parameter combinations
+for param in pdq:
+    for param_seasonal in model_pdq:
+        # Fit the SARIMA model
+        SARIMA_model = sm.tsa.statespace.SARIMAX(train['col'].values,
+                                                 order=param,
+                                                 seasonal_order=param_seasonal,
+                                                 enforce_stationarity=False,
+                                                 enforce_invertibility=False)
+        # Fit the model
+        results_SARIMA = SARIMA_model.fit(maxiter=1000)
+        
+        # Print the AIC for the parameter combination
+        print('SARIMA{}x{} - AIC:{}'.format(param, param_seasonal, results_SARIMA.aic))
+        
+        # Create a new row and ensure no NA values
+        new_row = pd.DataFrame({'param': [param], 'seasonal': [param_seasonal], 'AIC': [results_SARIMA.aic]})
+        
+        # Only concatenate if the new_row is valid (i.e., not NA)
+        if not new_row.isnull().values.any():
+            SARIMA_AIC = pd.concat([SARIMA_AIC, new_row], ignore_index=True)
+# Display the DataFrame with the SARIMA model results
+SARIMA_AIC
+
+# getting best params based on lowest AIC values
+SARIMA_AIC.sort_values(by=['AIC']).head()
+
+# building SARIMA model based on best params
+import statsmodels.api as sm
+auto_SARIMA_6 = sm.tsa.statespace.SARIMAX(train['RetailSales'].values,
+                                order=(0, 1, 2),
+                                seasonal_order=(2, 0, 2, 6),
+                                enforce_stationarity=False,
+                                enforce_invertibility=False)
+results_auto_SARIMA_6 = auto_SARIMA_6.fit(maxiter=1000)
+print(results_auto_SARIMA_6.summary())
+
+# Residual diagnostic plot
+results_auto_SARIMA_6.plot_diagnostics()
+plt.show()
+
+# Predict on the Test Set using this model and evaluate the model.
+predicted_auto_SARIMA_6 = results_auto_SARIMA_6.get_forecast(steps=len(test))
+predicted_auto_SARIMA_6.summary_frame(alpha=0.05).head()
+rmse = mean_squared_error(test['RetailSales'],predicted_auto_SARIMA_6.predicted_mean,squared=False)
+print(rmse)
+temp_resultsDf = pd.DataFrame({'RMSE': [rmse]}
+                           ,index=['SARIMA(0,1,2)(2,0,2,6)'])
+resultsDf = pd.concat([resultsDf,temp_resultsDf])
+resultsDf
+# if there are more than one time intervals above CI in ACF plot repeat for other time intervals
+
+# based on model performance choose the best time interval than create ACf and PACF plots as earlier using .diff().dropna() and create using .diff(seasonal_int)
+plot_acf(df['col'].diff().dropna(),lags=50,title='Differenced Data Autocorrelation')
+plot_pacf(df['col'].diff().dropna(),lags=50,title='Differenced Data Patial Autocorrelation')
+plt.show()
+
+df.plot()
+plt.grid();
+
+# if data has trend
+(df['col'].diff(seasonal_int)).plot()
+plt.grid();
+
+# if still there is trend
+(df['col'].diff(seasonal_int)).diff().plot()
+plt.grid();
+
+# do dicky fuller test
+test_stationarity((train['col'].diff(6).dropna()).diff(1).dropna()) # function defined in relevant notebook in this repository
+
+# create 
+
+# ACF and PACF plot of updated df
+plot_acf((df['col'].diff(seasonal_df).dropna()).diff(1).dropna(),lags=30)
+plot_pacf((df['col'].diff(seasonal_df).dropna()).diff(1).dropna(),lags=30);
+
+# based on ACF and PACF find best p and q values and look for best seasonal order and then based on best param create the model
+manual_SARIMA_6 = sm.tsa.statespace.SARIMAX(train['col'].values,
+                                order=(PACF, 1, ACF),
+                                seasonal_order=(besr_param, seasonal_int),
+                                enforce_stationarity=False,
+                                enforce_invertibility=False)
+results_manual_SARIMA_6 = manual_SARIMA_6.fit(maxiter=1000)
+print(results_manual_SARIMA_6.summary())
+
+# diagnostic plot
+results_manual_SARIMA_6.plot_diagnostics()
+plt.show()
+
+# predict for test set
+predicted_manual_SARIMA_6 = results_manual_SARIMA_6.get_forecast(steps=len(test))
+rmse = mean_squared_error(test['RetailSales'],predicted_manual_SARIMA_6.predicted_mean,squared=False)
+print(rmse)
+temp_resultsDf = pd.DataFrame({'RMSE': [rmse]}
+                           ,index=['SARIMA(0,1,0)(1,1,3,6)'])
+resultsDf = pd.concat([resultsDf,temp_resultsDf])
+resultsDf
+
+# find the best performing model and Building the most optimum model on the Full Data.
+full_data_model = best_model(df['col'],details)
+print(results_full_data_model.summary())
+
+# diagnostics
+results_full_data_model.plot_diagnostics();
+
+# Evaluate the model on the whole and predict into the future.
+predicted_manual_full_data = results_full_data_model.get_forecast(steps=predicting_period)
+predicted_manual_full_data.summary_frame(alpha=0.05).head()
+rmse = mean_squared_error(df['col'],results_full_data_model.fittedvalues,squared=False)
+print('RMSE of the Full Model',rmse)
+
+pred_full_manual_date = predicted_manual_full_data.summary_frame(alpha=0.05).set_index(pd.date_range(start='date',end='date', freq='freq'))
+# plot the forecast along with the confidence band
+axis = df['col'].plot(label='Observed')
+pred_full_manual_date['mean'].plot(ax=axis, label='Forecast', alpha=0.7)
+axis.fill_between(pred_full_manual_date.index, pred_full_manual_date['mean_ci_lower'], 
+                  pred_full_manual_date['mean_ci_upper'], color='k', alpha=.15)
+axis.set_xlabel('Year-Months')
+axis.set_ylabel('label')
+plt.legend(loc='best')
+
+plt.show()
+
