@@ -246,6 +246,19 @@ axis.fill_between(pred_full_manual_date.index, pred_full_manual_date['mean_ci_lo
 axis.set_xlabel('Year-Months')
 axis.set_ylabel('label')
 plt.legend(loc='best')
-
 plt.show()
 
+
+## Models with exogeneous variables
+# create 2 dfs, 1 with time series and another with exogeneous variables ensuring that data in second df is encoded
+# like we do with normal ML models.
+mod = sm.tsa.statespace.SARIMAX(train['Customers'],exog=ex_train,time_varying_regression=True,mle_regression=False/True,
+                                order=(p,d,q),
+                                seasonal_order=(P, D, Q, seasonal_int),
+                                enforce_stationarity=False,
+                                enforce_invertibility=False)
+results = mod.fit()
+print(results.summary())
+# predict for test data, calculate RMSE and concat the result to result_df
+# for ARIMA case we use SARIMAX code like above only by taking seasonal_order as None and time_varying_regression and 
+# mle_regression are set at False
